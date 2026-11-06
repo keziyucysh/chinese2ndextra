@@ -1,0 +1,17 @@
+{
+  "name": "搶救國文大作戰",
+  "short_name": "搶救國文",
+  "description": "高中國文字形、字音、字根、一詞多義、成語古今義複習 App",
+  "lang": "zh-Hant-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF7ED",
+  "theme_color": "#F59E0B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
