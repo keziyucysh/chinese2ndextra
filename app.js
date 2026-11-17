@@ -33,7 +33,20 @@ function rw(s, mode) {
     const isC = ch === s.c;
     if (mode === 'blank' && isC) return '<span class="blank">□</span>';
     const inner = (mode === 'hl' && isC) ? `<b class="hl">${esc(ch)}</b>` : esc(ch);
-    return zy ? `<ruby>${inner}<rt>${esc(zy)}</rt></ruby>` : inner;
+    return zy ? zyWrap(inner, zy) : inner;
+  }).join('');
+}
+// 注音顯示在字的正下方
+const zyWrap = (inner, zy) => `<span class="zc">${inner}<span class="zr" aria-hidden="true">${esc(zy)}</span></span>`;
+// 通用：「字{注音}」解析與呈現（注音顯示在字下方）
+const parseZ = str => [...String(str || '').matchAll(/(.)(?:\{([^}]+)\})?/gu)].map(x => [x[1], x[2] || '']);
+const plainZ = str => String(str || '').replace(/\{[^}]*\}/g, '');
+function zh(parts, hlChars, hideHlZy) {
+  const set = new Set(hlChars || []);
+  return parts.map(([ch, zy]) => {
+    const isH = set.has(ch);
+    const inner = isH ? `<b class="hl">${esc(ch)}</b>` : esc(ch);
+    return zy && !(hideHlZy && isH) ? zyWrap(inner, zy) : inner;
   }).join('');
 }
 const blankWord = (w, c) => chars(w).map(ch => ch === c ? '<span class="blank">□</span>' : esc(ch)).join('');
@@ -80,13 +93,14 @@ function parseAll(B) {
       text: [full, q, sub].join(' ') }, meta));
   }
   // 模組 3
-  g = ''; let root = '', rootChars = '', ri = 0;
+  g = ''; let root = '', rootZ = [], rootChars = '', ri = 0;
   for (const raw of lines(B.m3)) {
     if (raw.startsWith('==')) { g = raw.slice(2).trim().replace('音', ''); continue; }
-    if (raw.startsWith('##')) { [root, rootChars] = raw.slice(2).split('|').map(s => s.trim()); ri = 0; continue; }
+    if (raw.startsWith('##')) { let rr; [rr, rootChars] = raw.slice(2).split('|').map(s => s.trim()); rootZ = parseZ(rr); root = plainZ(rr); ri = 0; continue; }
     const [main, meta] = splitMeta(raw); ri++;
-    const [zy, w, c, m] = main.split('|').map(s => s.trim());
-    add(Object.assign({ id: `3-${root}-${ri}`, mod: 3, group: g, root, rootChars, zy, w, c, m,
+    const [zy, wRaw, c, m] = main.split('|').map(s => s.trim());
+    const w = plainZ(wRaw);
+    add(Object.assign({ id: `3-${root}-${ri}`, mod: 3, group: g, root, rootZ, rootChars, zy, w, wz: parseZ(wRaw), c, m,
       text: [w, c, m, zy, root].join(' ') }, meta));
   }
   // 模組 4
@@ -96,8 +110,9 @@ function parseAll(B) {
     if (raw.startsWith('*')) { sense = raw.slice(1).trim(); continue; }
     if (raw.startsWith('>')) {
       const [main, meta] = splitMeta(raw.slice(1).trim()); ei++;
-      const [s, src, tr] = main.split('|').map(x => x.trim());
-      add({ id: `4-${word}-${ei}`, mod: 4, group: '', word, sense, s, src, tr,
+      const [s, srcRaw, tr] = main.split('|').map(x => x.trim());
+      const src = plainZ(srcRaw);
+      add({ id: `4-${word}-${ei}`, mod: 4, group: '', word, sense, s, src, srcZ: parseZ(srcRaw), tr,
         tags: wmeta.tags.slice(), notes: meta.notes, flag: meta.flag, hard: meta.hard,
         text: [word, sense, s, src, tr].join(' ') });
     }
@@ -105,8 +120,9 @@ function parseAll(B) {
   // 模組 5
   for (const raw of lines(B.m5)) {
     const [main, meta] = splitMeta(raw);
-    const [num, idiom, ...ms] = main.split('|').map(s => s.trim());
-    add(Object.assign({ id: `5-${num}`, mod: 5, group: '', num, idiom, orig: ms[0], later: ms.slice(1).filter(Boolean),
+    const [num, idiomRaw, ...ms] = main.split('|').map(s => s.trim());
+    const idiom = plainZ(idiomRaw);
+    add(Object.assign({ id: `5-${num}`, mod: 5, group: '', num, idiom, idiomZ: parseZ(idiomRaw), orig: ms[0], later: ms.slice(1).filter(Boolean),
       text: [idiom, ...ms].join(' ') }, meta));
   }
 }
@@ -167,7 +183,7 @@ function makeQ(it) {
     const all = ITEMS.filter(x => x.mod === 3).map(x => x.zy);
     correct = it.zy; ds = pick(correct, [grp, sec, all], 3);
     ask = `「${esc(it.c)}」在這個詞裡怎麼念？`;
-    prompt = `<div class="q-word kai">${hl(it.w, [it.c])}</div><div class="q-hint">聲符「${esc(it.root)}」</div>`;
+    prompt = `<div class="q-word kai">${zh(it.wz, [it.c], true)}</div><div class="q-hint">聲符「${zh(it.rootZ)}」</div>`;
     optCls = 'opt-zy zy';
     explain = `<p><b class="hl kai">${esc(it.c)}</b> <span class="zy">${esc(it.zy)}</span>：${esc(it.m)}</p><p class="muted">同組：${esc(it.rootChars)}</p>`;
   } else if (it.mod === 4) {
@@ -175,7 +191,7 @@ function makeQ(it) {
     const all = ITEMS.filter(x => x.mod === 4).map(x => x.sense);
     correct = it.sense; ds = pick(correct, [same, all], 3);
     ask = `「${esc(it.word)}」在句中的意思是？`;
-    prompt = `<div class="q-sent kai">${m4Sent(it)}</div><div class="q-src">${esc(it.src)}</div>`;
+    prompt = `<div class="q-sent kai">${m4Sent(it)}</div><div class="q-src">${zh(it.srcZ)}</div>`;
     optCls = 'opt-text';
     explain = `<p><b>${esc(it.word)}</b>：${esc(it.sense)}</p><p class="muted">${esc(it.tr)}</p>`;
   } else {
@@ -189,7 +205,7 @@ function makeQ(it) {
       ds = pick(correct, [ITEMS.filter(x => x.mod === 5 && x !== it).map(x => x.orig)], 3, it.later);
       ask = `「${esc(it.idiom)}」的原義是？`;
     }
-    prompt = `<div class="q-word kai">${esc(it.idiom)}</div>`;
+    prompt = `<div class="q-word kai">${zh(it.idiomZ)}</div>`;
     optCls = 'opt-text';
     explain = m5Meanings(it);
   }
@@ -223,7 +239,7 @@ function m5Meanings(it) {
 
 /* ---------- 學習紀錄（存在裝置上） ---------- */
 const KEY = 'zhuyin-review-v1';
-let S = { known: {}, done: {}, wrong: {}, gs: {}, font: 1, theme: 'system' };
+let S = { known: {}, done: {}, wrong: {}, gs: {}, notes: {}, font: 1, theme: 'system' };
 function load() { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) S = Object.assign(S, v); } catch (e) {} }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 function record(it, ok) {
@@ -246,10 +262,16 @@ function tally(mod) {
   const vals = unitsOf(mod).map(u => gStat(mod, u));
   return { n: vals.length, ok: vals.filter(v => v === 1).length, weak: vals.filter(v => v === 0).length, rev: vals.filter(v => v === 2).length };
 }
+// 筆記冊：整題收藏（t 為空）或劃重點的片段（t 為選取的文字）
+const noteKey = (id, t) => `${id}|${t || '*'}`;
+const hasWhole = id => !!S.notes[noteKey(id)];
+const notesOf = id => Object.values(S.notes).filter(n => n.i === id);
+const snipsOf = id => notesOf(id).filter(n => n.t);
+const noteItems = () => uniq(Object.values(S.notes).sort((a, b) => a.at - b.at).map(n => n.i)).filter(id => byId[id]);
 const doneCount = id => modItems(id).filter(i => S.done[i.id] || S.known[i.id] === 1).length;
 
 /* ---------- 給 Node 測試用 ---------- */
-if (typeof module !== 'undefined') module.exports = { parseAll, ITEMS, makeQ, MODS, groupsOf, unitsOf, unitOf };
+if (typeof module !== 'undefined') module.exports = { parseAll, ITEMS, makeQ, MODS, groupsOf, unitsOf, unitOf, parseZ, plainZ };
 if (typeof document === 'undefined') return;
 
 /* ================= 畫面 ================= */
@@ -268,11 +290,16 @@ function back() { if (stack.length > 1) { stack.pop(); render(); } }
 function render() {
   const [name, arg] = stack[stack.length - 1];
   const out = R[name](arg) || {};
-  top.innerHTML = `${stack.length > 1 ? '<button class="iconbtn" id="backBtn" aria-label="返回">‹</button>' : '<span class="brand-dot" aria-hidden="true">國</span>'}<h1 class="kai">${esc(out.title || '搶救國文大作戰')}</h1>`;
+  top.innerHTML = `${stack.length > 1 ? '<button class="iconbtn" id="backBtn" aria-label="返回">‹</button>' : '<span class="brand-dot" aria-hidden="true">國</span>'}<h1 class="kai">${esc(out.title || '搶救國文大作戰')}</h1>${updatedHtml()}`;
   if (stack.length > 1) $('#backBtn').onclick = back;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === (out.tab || '')));
   window.scrollTo(0, 0);
+  applyMarks(view);
   if (out.after) out.after();
+}
+function updatedHtml() {
+  const u = String(window.BANK_UPDATED || '').match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}:\d{2})/);
+  return u ? `<span class="upd" title="題庫更新時間">更新<br>${+u[2]}/${+u[3]} ${u[4]}</span>` : '';
 }
 function applySettings() {
   document.documentElement.style.setProperty('--scale', [0.9, 1, 1.12, 1.26][S.font] || 1);
@@ -283,7 +310,6 @@ function applySettings() {
 /* ---- 首頁 ---- */
 R.home = () => {
   const total = ITEMS.length, wrongN = Object.keys(S.wrong).length;
-  const examN = ITEMS.filter(i => i.tags.length).length;
   const flagN = ITEMS.filter(i => i.flag).length;
   view.innerHTML = `
   <section class="hero">
@@ -292,7 +318,7 @@ R.home = () => {
     <div class="countdown" id="countdown" aria-live="off">${countdownHtml()}</div>
     <div class="hero-stats">
       <div><span class="num">${total}</span><span>題</span></div>
-      <div><span class="num">${examN}</span><span>歷屆考題</span></div>
+      <button class="stat-btn" id="toNotes"><span class="num">${Object.keys(S.notes).length}</span><span>筆記</span></button>
       <button class="stat-btn" id="toWrong"><span class="num">${wrongN}</span><span>錯題</span></button>
     </div>
     ${overviewHtml()}
@@ -312,7 +338,7 @@ R.home = () => {
       </div></article>`;
   }).join('')}</div>
   ${flagN ? `<button class="pending-link" id="toPending"><b>${flagN}</b> 題掃描字跡待確認，點此逐一核對</button>` : ''}
-  <p class="foot muted">完成＝單字卡標為「已熟悉」或測驗答對過。學習紀錄只存在這台裝置。</p>`;
+  <p class="foot muted">完成＝單字卡標為「已熟悉」或測驗答對過。瀏覽時長按（選取）文字可劃重點，收進「筆記冊」。學習紀錄只存在這台裝置。</p>`;
   view.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
     const m = +b.dataset.m, a = b.dataset.a;
     if (a === 'browse') go('browse', { mod: m });
@@ -321,6 +347,7 @@ R.home = () => {
   view.querySelectorAll('[data-um]').forEach(b => b.onclick = () => go('browse', { mod: +b.dataset.um, g: b.dataset.u }));
   $('#mixQuiz').onclick = () => go('setup', { mode: 'quiz', mods: [1, 2, 3, 4, 5] });
   $('#toWrong').onclick = () => go('wrong');
+  $('#toNotes').onclick = () => go('notes');
   if ($('#toPending')) $('#toPending').onclick = () => go('pending');
   return { title: '搶救國文大作戰', tab: 'home' };
 };
@@ -362,6 +389,123 @@ function unitBlock(mod) {
   </div>`;
 }
 
+/* ---- 筆記冊：按鈕、劃重點、提示 ---- */
+const ICON_NOTE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
+function noteBtn(id, wide) {
+  const on = hasWhole(id), n = snipsOf(id).length;
+  if (wide) return `<button type="button" class="btn nbtn-wide${on ? ' on' : ''}" data-note="${esc(id)}" aria-pressed="${on}">${ICON_NOTE}<span>${on ? '已加入筆記冊' : '加入筆記冊'}</span></button>`;
+  return `<button type="button" class="nbtn${on ? ' on' : ''}${n ? ' has-snip' : ''}" data-note="${esc(id)}" aria-pressed="${on}" aria-label="${on ? '已加入筆記冊，點一下移除' : '加入筆記冊'}">${ICON_NOTE}${n ? `<i>${n}</i>` : ''}</button>`;
+}
+function refreshNoteUI(id) {
+  document.querySelectorAll(`[data-note="${CSS.escape(id)}"]`).forEach(b => {
+    const wide = b.classList.contains('nbtn-wide');
+    const tmp = document.createElement('div'); tmp.innerHTML = noteBtn(id, wide);
+    b.replaceWith(tmp.firstChild);
+  });
+  document.querySelectorAll(`[data-nid="${CSS.escape(id)}"]`).forEach(markHost);
+}
+function toggleWhole(id) {
+  const k = noteKey(id);
+  if (S.notes[k]) { delete S.notes[k]; toast('已從筆記冊移除'); }
+  else { S.notes[k] = { i: id, t: '', at: Date.now() }; toast('已加入筆記冊'); }
+  save(); refreshNoteUI(id);
+}
+function addSnip(id, t) {
+  const k = noteKey(id, t);
+  if (!S.notes[k]) { S.notes[k] = { i: id, t, at: Date.now() }; save(); }
+  toast(`已加入筆記冊：「${t.length > 14 ? t.slice(0, 14) + '…' : t}」`);
+  refreshNoteUI(id);
+}
+let toastT = 0;
+function toast(msg) {
+  const el = document.getElementById('toast'); if (!el) return;
+  el.textContent = msg; el.hidden = false; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => { el.classList.remove('show'); setTimeout(() => { el.hidden = true; }, 250); }, 1800);
+}
+// 把劃過的重點以螢光筆標示（略過注音）
+function textNodesOf(el) {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('.zr, button, .tags, .chev, .note-row') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const a = []; while (w.nextNode()) a.push(w.currentNode); return a;
+}
+function wrapFirst(el, t, key) {
+  const ns = textNodesOf(el); let full = ''; const map = [];
+  ns.forEach(n => { map.push([n, full.length]); full += n.data; });
+  const idx = full.indexOf(t); if (idx < 0) return;
+  const end = idx + t.length;
+  for (let k = map.length - 1; k >= 0; k--) {
+    const [n, st] = map[k], en = st + n.data.length, a = Math.max(idx, st), b = Math.min(end, en);
+    if (a < b) { const r = document.createRange(); r.setStart(n, a - st); r.setEnd(n, b - st); const m = document.createElement('mark'); m.className = 'hlt'; m.dataset.k = key; m.title = '點一下可取消劃重點'; r.surroundContents(m); }
+  }
+}
+function markHost(host) {
+  host.querySelectorAll('mark.hlt').forEach(m => { const p = m.parentNode; while (m.firstChild) p.insertBefore(m.firstChild, m); p.removeChild(m); p.normalize(); });
+  const snips = snipsOf(host.dataset.nid); if (!snips.length) return;
+  const zones = host.matches('details') ? [host.querySelector('summary'), host.querySelector('.card-body')] : [host];
+  zones.forEach(z => z && snips.forEach(n => wrapFirst(z, n.t, noteKey(n.i, n.t))));
+}
+function applyMarks(root) { (root || document).querySelectorAll('[data-nid]').forEach(markHost); }
+// 選取文字 → 底部出現「劃重點」
+let selT = 0, selInfo = null;
+function hideSelBar() { const b = document.getElementById('selbar'); if (b) b.hidden = true; selInfo = null; }
+function showBar(info, label, btnText) {
+  selInfo = info;
+  const b = document.getElementById('selbar');
+  b.querySelector('.sel-text').textContent = label;
+  const add = b.querySelector('#selAdd');
+  add.textContent = btnText; add.classList.toggle('danger', info.mode === 'remove');
+  b.hidden = false;
+}
+function removeSnip(key) {
+  const n = S.notes[key]; if (!n) return;
+  delete S.notes[key]; save(); toast('已取消劃重點'); refreshNoteUI(n.i);
+}
+function checkSel() {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return hideSelBar();
+  const r = sel.getRangeAt(0);
+  const anc = r.commonAncestorContainer.nodeType === 1 ? r.commonAncestorContainer : r.commonAncestorContainer.parentElement;
+  const host = anc && anc.closest('[data-nid]');
+  if (!host) return hideSelBar();
+  const frag = r.cloneContents(); frag.querySelectorAll('.zr, button, .tags').forEach(e => e.remove());
+  const t = frag.textContent.replace(/\s+/g, '').trim();
+  if (!t) return hideSelBar();
+  const tt = t.slice(0, 60);
+  // 選到的正好是已劃的重點 → 改成取消
+  if (S.notes[noteKey(host.dataset.nid, tt)]) return showBar({ mode: 'remove', key: noteKey(host.dataset.nid, tt), t: tt }, `「${short(tt)}」已劃過`, '取消劃重點');
+  showBar({ mode: 'add', id: host.dataset.nid, t: tt }, `「${short(tt)}」`, '劃重點');
+}
+const short = t => t.length > 14 ? t.slice(0, 14) + '…' : t;
+document.addEventListener('selectionchange', () => {
+  clearTimeout(selT);
+  selT = setTimeout(() => { if (selInfo && selInfo.mode === 'remove' && selInfo.tap) return; checkSel(); }, 150);
+});
+// 點一下螢光標記 → 取消劃重點
+document.addEventListener('click', e => {
+  const m = e.target.closest('mark.hlt[data-k]');
+  if (!m || (window.getSelection() && !window.getSelection().isCollapsed)) return;
+  e.preventDefault(); e.stopPropagation();
+  const n = S.notes[m.dataset.k]; if (!n) return;
+  showBar({ mode: 'remove', key: m.dataset.k, t: n.t, tap: true }, `「${short(n.t)}」`, '取消劃重點');
+}, true);
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-note]');
+  if (b) { e.preventDefault(); e.stopPropagation(); toggleWhole(b.dataset.note); }
+}, true);
+(function initSelBar() {
+  const bar = document.getElementById('selbar'); if (!bar) return;
+  const btn = bar.querySelector('#selAdd');
+  btn.addEventListener('pointerdown', e => e.preventDefault());
+  btn.addEventListener('mousedown', e => e.preventDefault());
+  btn.addEventListener('click', () => {
+    if (!selInfo) return;
+    const info = selInfo;
+    window.getSelection().removeAllRanges(); hideSelBar();
+    if (info.mode === 'remove') { removeSnip(info.key); if (stack.length && stack[stack.length - 1][0] === 'notes') { const y = window.scrollY; render(); window.scrollTo(0, y); } }
+    else addSnip(info.id, info.t);
+  });
+  bar.querySelector('#selCancel').addEventListener('click', () => { window.getSelection().removeAllRanges(); hideSelBar(); });
+})();
+
 /* ---- 瀏覽 ---- */
 function itemCard(it, open) {
   let head = '', body = '';
@@ -372,31 +516,28 @@ function itemCard(it, open) {
     head = `<div class="row2"><span class="kai big">${m2Full(it)}</span></div>`;
     body = it.alts.length > 1 ? `<p>可接受寫法：${it.alts.map(esc).join('、')}</p>` : '';
   } else if (it.mod === 3) {
-    head = `<div class="row3"><span class="zy zyc">${esc(it.zy)}</span><span class="kai big">${hl(it.w, [it.c])}</span></div>`;
+    head = `<div class="row3"><span class="zy zyc">${esc(it.zy)}</span><span class="kai big">${zh(it.wz, [it.c])}</span></div>`;
     body = `<p>${esc(it.m)}</p>`;
   } else if (it.mod === 4) {
     head = `<div><span class="sense">${esc(it.sense)}</span><p class="kai sent">${m4Sent(it)}</p></div>`;
-    body = `<p class="q-src">${esc(it.src)}</p><p>${esc(it.tr)}</p>`;
+    body = `<p class="q-src">${zh(it.srcZ)}</p><p>${esc(it.tr)}</p>`;
   } else {
-    head = `<div class="row3"><span class="num-s">${esc(it.num)}</span><span class="kai big">${esc(it.idiom)}</span></div>`;
+    head = `<div class="row3"><span class="num-s">${esc(it.num)}</span><span class="kai big">${zh(it.idiomZ)}</span></div>`;
     body = m5Meanings(it);
   }
   body += notesHtml(it);
-  const hasBody = body.trim().length > 0;
-  return `<details class="card${it.flag ? ' flagged' : ''}" ${open ? 'open' : ''}><summary>${head}<span class="tags">${tagsHtml(it)}</span>${hasBody ? '<span class="chev" aria-hidden="true">⌄</span>' : ''}</summary>${hasBody ? `<div class="card-body">${body}</div>` : ''}</details>`;
+  body += `<div class="note-row">${noteBtn(it.id, true)}<span class="note-tip">長按選取文字可劃重點，點黃色標記可取消</span></div>`;
+  return `<details class="card${it.flag ? ' flagged' : ''}" data-nid="${esc(it.id)}" ${open ? 'open' : ''}><summary>${head}<span class="tags">${tagsHtml(it)}</span>${noteBtn(it.id)}<span class="chev" aria-hidden="true">⌄</span></summary><div class="card-body">${body}</div></details>`;
 }
 R.browse = (st) => {
   const m = MODS[st.mod - 1];
   const groups = unitsOf(st.mod);
   if (!groups.includes(st.g)) st.g = groups[0] || '';
-  const exam = !!st.exam;
-  let list = modItems(st.mod).filter(i => unitOf(i) === st.g && (!exam || i.tags.length));
+  let list = modItems(st.mod).filter(i => unitOf(i) === st.g);
   const cur = gStat(st.mod, st.g);
-  let html = `<div class="filters"><div class="chips" role="tablist">${groups.map(g => `<button class="chip${g === st.g ? ' on' : ''}" data-g="${esc(g)}"><i class="dot ${statCls(gStat(st.mod, g))}"></i>${esc(g)}</button>`).join('')}</div>
-    <label class="switch"><input type="checkbox" id="examOnly" ${exam ? 'checked' : ''}><span>只看歷屆考題</span></label></div>
+  let html = `<div class="filters"><div class="chips wrap" role="tablist">${groups.map(g => `<button class="chip${g === st.g ? ' on' : ''}" data-g="${esc(g)}"><i class="dot ${statCls(gStat(st.mod, g))}"></i>${esc(g)}</button>`).join('')}</div></div>
     <div class="gmark"><p><b class="kai">${esc(st.g)}</b> 這一組讀得如何？</p>
       <div class="gbtns"><button class="btn mark-known${cur === 1 ? ' on' : ''}" id="gKnown">已熟悉</button><button class="btn mark-rev${cur === 2 ? ' on' : ''}" id="gRev">考前再看一次</button><button class="btn mark-weak${cur === 0 ? ' on' : ''}" id="gWeak">待加強</button></div></div>`;
-  if (!list.length) html += `<p class="empty">這一組沒有歷屆考題。</p>`;
   if (st.mod === 1) {
     for (const s of ['因形似而誤寫', '因音同或音近而誤寫']) {
       const l = list.filter(i => i.sub === s);
@@ -407,7 +548,7 @@ R.browse = (st) => {
   } else if (st.mod === 3) {
     for (const r of uniq(list.map(i => i.root))) {
       const l = list.filter(i => i.root === r);
-      html += `<h3 class="sub"><span class="kai rootc">${esc(r)}</span><span class="muted">${esc(l[0].rootChars)}</span></h3>` + l.map(i => itemCard(i)).join('');
+      html += `<h3 class="sub"><span class="kai rootc">${zh(l[0].rootZ)}</span><span class="muted">${esc(l[0].rootChars)}</span></h3>` + l.map(i => itemCard(i)).join('');
     }
   } else if (st.mod === 4) {
     for (const w of uniq(list.map(i => i.word))) {
@@ -417,7 +558,6 @@ R.browse = (st) => {
   } else html += list.map(i => itemCard(i)).join('');
   view.innerHTML = html;
   view.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { st.g = b.dataset.g; render(); });
-  $('#examOnly').onchange = e => { st.exam = e.target.checked; render(); };
   const setG = v => { const k = gKey(st.mod, st.g); if (S.gs[k] === v) delete S.gs[k]; else S.gs[k] = v; save(); const y = window.scrollY; render(); window.scrollTo(0, y); };
   $('#gKnown').onclick = () => setG(1);
   $('#gWeak').onclick = () => setG(0);
@@ -490,9 +630,10 @@ R.quiz = (st) => {
     if (answered) cls += k === q.answer ? ' right' : (k === pick ? ' wrong' : ' dim');
     return `<button class="${cls}" data-k="${k}" ${answered ? 'disabled' : ''}><span class="okey">${'ABCD'[k]}</span><span class="otext">${esc(o)}</span></button>`;
   }).join('')}</div>
-  ${answered ? `<section class="explain ${pick === q.answer ? 'ok' : 'ng'}" aria-live="polite">
+  ${answered ? `<section class="explain ${pick === q.answer ? 'ok' : 'ng'}" data-nid="${esc(q.it.id)}" aria-live="polite">
       <p class="verdict">${pick === q.answer ? '答對了' : '答錯了，正確答案是 ' + '<b>' + esc(q.options[q.answer]) + '</b>'}</p>
       ${q.explain}${notesHtml(Object.assign({}, q.it, { flag: '' }))}
+      <div class="note-row">${noteBtn(q.it.id, true)}<span class="note-tip">長按選取文字可劃重點，點黃色標記可取消</span></div>
     </section>
     <button class="btn primary wide" id="next">${st.i + 1 < total ? '下一題' : '看成績'}</button>` : ''}`;
   if (!answered) view.querySelectorAll('.opt').forEach(b => b.onclick = () => {
@@ -526,11 +667,11 @@ function flashSides(it) {
     `<div class="fc-word kai">${rw(it.a, 'hl')}</div><div class="fc-word kai">${rw(it.b, 'hl')}</div>`];
   if (it.mod === 2) return [`<div class="q-zy zy">${esc(it.zy)}</div><div class="fc-word kai">${m2Blank(it.q)}</div>`,
     `<div class="fc-word kai">${m2Full(it)}</div>${it.alts.length > 1 ? `<div class="fc-hint">可接受：${it.alts.map(esc).join('、')}</div>` : ''}`];
-  if (it.mod === 3) return [`<div class="fc-word kai">${hl(it.w, [it.c])}</div><div class="fc-hint">「${esc(it.c)}」怎麼念？</div>`,
+  if (it.mod === 3) return [`<div class="fc-word kai">${zh(it.wz, [it.c], true)}</div><div class="fc-hint">「${esc(it.c)}」怎麼念？</div>`,
     `<div class="q-zy zy big-zy">${esc(it.zy)}</div><div class="fc-hint">${esc(it.m)}</div>`];
-  if (it.mod === 4) return [`<div class="fc-sent kai">${m4Sent(it)}</div><div class="fc-hint">${esc(it.src)}・「${esc(it.word)}」的意思？</div>`,
+  if (it.mod === 4) return [`<div class="fc-sent kai">${m4Sent(it)}</div><div class="fc-hint">${zh(it.srcZ)}・「${esc(it.word)}」的意思？</div>`,
     `<div class="fc-ans">${esc(it.sense)}</div><div class="fc-hint">${esc(it.tr)}</div>`];
-  return [`<div class="fc-word kai">${esc(it.idiom)}</div><div class="fc-hint">原義與後來的意義？</div>`, `<div class="fc-means">${m5Meanings(it)}</div>`];
+  return [`<div class="fc-word kai">${zh(it.idiomZ)}</div><div class="fc-hint">原義與後來的意義？</div>`, `<div class="fc-means">${m5Meanings(it)}</div>`];
 }
 R.flash = (st) => {
   const it = st.items[st.i], [front, backS] = flashSides(it), k = S.known[it.id];
@@ -545,6 +686,7 @@ R.flash = (st) => {
     <button class="btn mark-weak${k === 0 ? ' on' : ''}" id="weak">待加強</button>
     <button class="btn mark-known${k === 1 ? ' on' : ''}" id="known">已熟悉</button>
   </div>
+  <div class="note-row center">${noteBtn(it.id, true)}</div>
   <div class="row-btns nav"><button class="btn ghost" id="prev" ${st.i ? '' : 'disabled'}>上一張</button><button class="btn ghost" id="nextc">${st.i + 1 < st.items.length ? '下一張' : '完成'}</button></div>`;
   $('#card').onclick = () => { st.flip = !st.flip; render(); };
   const nextc = () => { if (st.i + 1 < st.items.length) { st.i++; st.flip = false; render(); } else back(); };
@@ -570,6 +712,37 @@ R.wrong = () => {
   };
   view.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { delete S.wrong[b.dataset.rm]; save(); render(); });
   return { title: '錯題本', tab: 'wrong' };
+};
+
+/* ---- 筆記冊 ---- */
+R.notes = (st) => {
+  const ids = noteItems(), list = ids.map(id => byId[id]);
+  st.m = st.m || 0;
+  const shown = list.filter(i => !st.m || i.mod === st.m);
+  const snipN = Object.values(S.notes).filter(n => n.t && byId[n.i]).length;
+  view.innerHTML = `
+  <section class="intro"><p>考前翻這裡就好。瀏覽、測驗或錯題本裡<b>長按選取文字</b>，按下方「劃重點」就能把一小段收進來；按卡片右邊的書籤則是整題收藏。劃錯了？<b>點一下黃色標記</b>或按重點旁的 ×，就能取消。</p></section>
+  ${list.length ? `
+  <p class="pool">共 <b>${list.length}</b> 題・劃了 <b>${snipN}</b> 處重點</p>
+  <div class="chips wrap nb-filter">${[[0, '全部']].concat(MODS.map(m => [m.id, m.name])).map(([v, t]) => {
+    const c = v ? list.filter(i => i.mod === v).length : list.length;
+    return c || !v ? `<button class="chip${st.m === v ? ' on' : ''}" data-mf="${v}">${t} ${c}</button>` : '';
+  }).join('')}</div>
+  <div class="row-btns"><button class="btn" id="nbFlash">翻卡複習</button><button class="btn primary" id="nbQuiz">用筆記出題</button></div>
+  ${MODS.map(m => {
+    const l = shown.filter(i => i.mod === m.id); if (!l.length) return '';
+    return `<h3 class="sub">${m.name}<span class="muted">${l.length} 題</span></h3>` + l.map(i => {
+      const sn = snipsOf(i.id);
+      return `<div class="nb-item">${sn.length ? `<div class="snips">${sn.map(n => `<span class="snip"><mark class="hlt">${esc(n.t)}</mark><button type="button" class="snip-x" data-rmsnip="${esc(noteKey(n.i, n.t))}" aria-label="刪除這個重點">×</button></span>`).join('')}</div>` : ''}${itemCard(i)}</div>`;
+    }).join('');
+  }).join('')}`
+  : `<div class="empty nb-empty"><p><b>筆記冊還是空的</b></p><p>到「瀏覽」打開任一卡片，長按選取想記的字或詞，再按「劃重點」；或按卡片右邊的書籤圖示整題收藏。</p></div>`}`;
+  view.querySelectorAll('[data-mf]').forEach(b => b.onclick = () => { st.m = +b.dataset.mf; render(); });
+  view.querySelectorAll('[data-rmsnip]').forEach(b => b.onclick = () => { delete S.notes[b.dataset.rmsnip]; save(); toast('已刪除這個重點'); const y = window.scrollY; render(); window.scrollTo(0, y); });
+  const pool = () => shown.filter(i => !i.hard);
+  if ($('#nbQuiz')) $('#nbQuiz').onclick = () => { const items = shuffle(pool()).slice(0, 30); go('quiz', { items, i: 0, qs: items.map(makeQ), res: [], from: null }); };
+  if ($('#nbFlash')) $('#nbFlash').onclick = () => go('flash', { items: shuffle(shown.slice()), i: 0, flip: false });
+  return { title: '筆記冊', tab: 'notes' };
 };
 
 /* ---- 搜尋 ---- */
@@ -605,14 +778,14 @@ R.settings = (st) => {
   view.innerHTML = `
   <div class="setup">
     <fieldset><legend>字級</legend><div class="chips">${['小', '標準', '大', '特大'].map((t, k) => `<button class="chip${S.font === k ? ' on' : ''}" data-f="${k}">${t}</button>`).join('')}</div>
-      <p class="preview kai">功虧一<b class="hl">簣</b>　<span class="zy">ㄎㄨㄟˋ</span></p></fieldset>
+      <p class="preview kai">功虧一<b class="hl">簣</b>　<span class="zc">癰<span class="zr" aria-hidden="true">ㄩㄥ</span></span>疽</p></fieldset>
     <fieldset><legend>外觀</legend><div class="chips">${[['system', '跟隨系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button class="chip${S.theme === v ? ' on' : ''}" data-t="${v}">${t}</button>`).join('')}</div></fieldset>
     <fieldset><legend>題庫</legend>
       ${MODS.map(m => `<p class="kv"><span>${m.name}</span><span>${modItems(m.id).length} 題・${m.pages}</span></p>`).join('')}
       ${ITEMS.some(i => i.flag) ? `<button class="btn wide" id="toPending">查看待確認題目（${ITEMS.filter(i => i.flag).length}）</button>` : ''}</fieldset>
     <fieldset><legend>學習紀錄</legend>
       <p class="muted">紀錄存在這台裝置的瀏覽器中，不需登入；清除瀏覽器資料會一併清除。</p>
-      ${st.confirm ? `<p class="warn">確定要清除所有進度、熟悉標記與錯題本嗎？</p><div class="row-btns"><button class="btn" id="cancel">取消</button><button class="btn danger" id="doReset">確定清除</button></div>`
+      ${st.confirm ? `<p class="warn">確定要清除所有進度、熟悉標記、筆記冊與錯題本嗎？</p><div class="row-btns"><button class="btn" id="cancel">取消</button><button class="btn danger" id="doReset">確定清除</button></div>`
         : `<button class="btn wide" id="reset">清除學習紀錄</button>`}</fieldset>
   </div>`;
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.font = +b.dataset.f; save(); applySettings(); render(); });
@@ -620,7 +793,7 @@ R.settings = (st) => {
   if ($('#toPending')) $('#toPending').onclick = () => go('pending');
   if ($('#reset')) $('#reset').onclick = () => { st.confirm = true; render(); };
   if ($('#cancel')) $('#cancel').onclick = () => { st.confirm = false; render(); };
-  if ($('#doReset')) $('#doReset').onclick = () => { S.known = {}; S.done = {}; S.wrong = {}; S.gs = {}; save(); st.confirm = false; render(); };
+  if ($('#doReset')) $('#doReset').onclick = () => { S.known = {}; S.done = {}; S.wrong = {}; S.gs = {}; S.notes = {}; save(); st.confirm = false; render(); };
   return { title: '設定', tab: 'settings' };
 };
 

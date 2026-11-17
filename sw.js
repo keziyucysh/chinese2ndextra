@@ -1,5 +1,5 @@
 /* 離線支援：有網路時抓最新版（題庫更新會自動生效），沒網路時用上次存下的版本。 */
-const CACHE = 'qiangjiu-v1';
+const CACHE = 'qiangjiu-v5';
 const CORE = ['./', 'index.html', 'app.js', 'data.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -22,7 +22,7 @@ self.addEventListener('fetch', e => {
   }
   if (url.origin !== location.origin) return;
   // 自己的檔案：網路優先，失敗才用快取
-  e.respondWith(fetch(req).then(res => {
+  e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
     const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return res;
   }).catch(() => caches.match(req).then(hit => hit || caches.match('index.html'))));
 });

@@ -20,7 +20,7 @@ img { max-width: 100%; }
 [hidden] { display: none !important; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
 /* 版面：單欄手機 App，上方標題列、下方分頁列；卡片只用在可操作的物件上 */
 :root {
@@ -38,24 +38,26 @@ img { max-width: 100%; }
   --ng: #B42318; --ng-bg: #FCE9E6;
   --flag: #8A5A00; --flag-bg: #FFF1C2;
   --rev: #2563A8; --rev-bg: #E6EEF8;
+  --marker: #FDE68A;
   --shadow: 0 1px 2px rgba(124,45,18,.08), 0 6px 18px rgba(124,45,18,.07);
-  --kai: "LXGW WenKai TC", "BiauKai", "DFKai-SB", "Kaiti TC", serif;
-  --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  /* 微軟正黑體；手機沒有內建時依序改用蘋方、思源黑體 */
+  --kai: "Microsoft JhengHei", "微軟正黑體", "PingFang TC", "Heiti TC", "Noto Sans TC", sans-serif;
+  --sans: "Microsoft JhengHei", "微軟正黑體", "PingFang TC", "Heiti TC", "Noto Sans TC", system-ui, sans-serif;
   --scale: 1;
   --r: 16px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --amber: #F59E0B; --peach: #9A4A16; --cream: #1C120C; --ember: #FB923C; --ink: #F6E3CF;
   --surface: #2A1B12; --surface-2: #362417; --line: #4A3222; --muted: #C9A487; --on-amber: #2A1206;
-  --ok: #7BC891; --ok-bg: #1E3125; --ng: #F2877A; --ng-bg: #3A1D18; --flag: #F3C969; --flag-bg: #3A2C10; --rev: #8DB8F0; --rev-bg: #1C2A3D;
+  --ok: #7BC891; --ok-bg: #1E3125; --ng: #F2877A; --ng-bg: #3A1D18; --flag: #F3C969; --flag-bg: #3A2C10; --rev: #8DB8F0; --rev-bg: #1C2A3D; --marker: #7A4A0C;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3); color-scheme: dark; } }
 :root[data-theme="dark"] {
   --amber: #F59E0B; --peach: #9A4A16; --cream: #1C120C; --ember: #FB923C; --ink: #F6E3CF;
   --surface: #2A1B12; --surface-2: #362417; --line: #4A3222; --muted: #C9A487; --on-amber: #2A1206;
-  --ok: #7BC891; --ok-bg: #1E3125; --ng: #F2877A; --ng-bg: #3A1D18; --flag: #F3C969; --flag-bg: #3A2C10; --rev: #8DB8F0; --rev-bg: #1C2A3D;
+  --ok: #7BC891; --ok-bg: #1E3125; --ng: #F2877A; --ng-bg: #3A1D18; --flag: #F3C969; --flag-bg: #3A2C10; --rev: #8DB8F0; --rev-bg: #1C2A3D; --marker: #7A4A0C;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3); color-scheme: dark; }
 
-html { font-size: calc(16px * var(--scale)); }
+html { font-size: calc(17.5px * var(--scale)); }
 body { background: var(--cream); color: var(--ink); font-family: var(--sans); font-size: 1rem; line-height: 1.6; -webkit-text-size-adjust: 100%; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--cream); }
 * { box-sizing: border-box; }
@@ -69,7 +71,8 @@ button:disabled { cursor: default; opacity: .5; }
 
 .shell { max-width: 480px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 calc(84px + env(safe-area-inset-bottom, 0px)); }
 #topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; align-items: center; gap: 10px; min-height: 56px; background: var(--cream); border-bottom: 1px solid var(--line); margin-bottom: 14px; }
-#topbar h1 { font-size: 1.3rem; margin: 0; font-weight: 700; letter-spacing: .04em; }
+#topbar h1 { flex: 1; min-width: 0; font-size: 1.3rem; margin: 0; font-weight: 700; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upd { flex: none; text-align: right; font-size: .66rem; line-height: 1.25; color: var(--muted); font-variant-numeric: tabular-nums; }
 .iconbtn { width: 44px; height: 44px; margin-left: -10px; border: 0; background: none; font-size: 2rem; line-height: 1; border-radius: 12px; }
 .brand-dot { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--amber); color: var(--on-amber); font-family: var(--kai); font-weight: 700; font-size: 1.1rem; }
 
@@ -161,13 +164,14 @@ button:disabled { cursor: default; opacity: .5; }
 .linkbtn { border: 0; background: none; color: var(--ember); text-decoration: underline; min-height: 36px; }
 
 /* 瀏覽卡片 */
-.filters { display: grid; gap: 4px; margin-bottom: 6px; position: sticky; top: calc(56px + env(safe-area-inset-top, 0px)); background: var(--cream); z-index: 4; padding-bottom: 6px; }
+.filters { display: grid; gap: 4px; margin-bottom: 6px; }
+.filters .chips.wrap { gap: 8px; }
 .sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 18px 2px 8px; font-size: .95rem; font-weight: 700; }
 .sub .muted { font-weight: 400; font-size: .85rem; }
 .rootc { font-size: 1.5rem; color: var(--ember); }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 8px; }
 .card.flagged { border-color: var(--flag); border-style: dashed; }
-.card summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; min-height: 52px; }
+.card summary { -webkit-user-select: text; user-select: text; list-style: none; display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; min-height: 52px; }
 .card summary::-webkit-details-marker { display: none; }
 .card summary > div:first-child { flex: 1; min-width: 0; }
 .chev { color: var(--muted); transition: transform .2s; }
@@ -214,9 +218,10 @@ button:disabled { cursor: default; opacity: .5; }
 .q-zy { font-size: 1.15rem; font-weight: 700; color: var(--ember); background: var(--surface-2); padding: 2px 14px; border-radius: 99px; }
 .big-zy { font-size: 1.8rem; }
 .blank { color: var(--ember); }
-ruby { ruby-position: under; -webkit-ruby-position: after; }
-rt { font-family: var(--sans); font-size: .5em; font-weight: 400; color: var(--muted); letter-spacing: 0; }
-.hl + rt, b.hl ~ rt { color: var(--ember); }
+.zc { position: relative; display: inline-block; padding-bottom: .5em; }
+.zc + .zc { margin-left: .7em; }
+.zr { position: absolute; left: 50%; top: calc(100% - .62em); transform: translateX(-50%); font-family: var(--sans); font-size: .5em; font-weight: 400; line-height: 1.1; letter-spacing: 0; white-space: nowrap; color: var(--muted); pointer-events: none; -webkit-user-select: none; user-select: none; }
+.zc .hl ~ .zr { color: var(--ember); }
 .opts { display: grid; gap: 10px; margin-top: 14px; }
 .opt { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; }
 .okey { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: .8rem; font-weight: 700; background: var(--surface-2); color: var(--muted); font-family: var(--sans); }
@@ -277,10 +282,39 @@ legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
 
 /* 分頁列 */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
-.tabbar nav { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+.tabbar nav { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(6, 1fr); }
 .tab { border: 0; background: none; min-height: 60px; display: grid; justify-items: center; align-content: center; gap: 2px; font-size: .72rem; color: var(--muted); }
 .tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tab.on { color: var(--ember); font-weight: 700; }
+/* 筆記冊與劃重點 */
+mark.hlt { background: var(--marker); color: inherit; border-radius: 3px; padding: 0 1px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.nbtn { flex: none; position: relative; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px; background: none; color: var(--muted); }
+.nbtn svg, .nbtn-wide svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.nbtn.on, .nbtn.has-snip { color: var(--ember); }
+.nbtn.on svg, .nbtn-wide.on svg { fill: currentColor; }
+.nbtn i { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--ember); color: var(--surface); font-style: normal; font-size: .62rem; font-weight: 700; line-height: 16px; }
+.note-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; }
+.note-row.center { justify-content: center; }
+.nbtn-wide { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: .9rem; }
+.nbtn-wide.on { background: var(--marker); border-color: var(--ember); color: var(--ink); font-weight: 700; }
+.note-tip { font-size: .76rem; color: var(--muted); }
+.nb-item { margin-bottom: 4px; }
+.snips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 2px 6px; }
+.snip { display: inline-flex; align-items: center; gap: 2px; font-size: 1.05rem; }
+.snip-x { border: 0; background: none; color: var(--muted); font-size: 1.1rem; width: 30px; height: 30px; border-radius: 8px; }
+.nb-filter { margin: 8px 0 4px; }
+.nb-empty p { margin: .4em 0; }
+#selbar { position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 8; display: flex; justify-content: center; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); pointer-events: none; }
+#selbar .sel-in { pointer-events: auto; display: flex; align-items: center; gap: 8px; max-width: 456px; width: 100%; padding: 8px 8px 8px 14px; border-radius: 16px; background: var(--ink); color: var(--cream); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+#selbar .sel-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .92rem; }
+#selbar button { flex: none; min-height: 42px; padding: 0 14px; border-radius: 12px; border: 0; font-weight: 700; }
+#selAdd { background: var(--amber); color: var(--on-amber); }
+#selAdd.danger { background: var(--ng); color: #fff; }
+mark.hlt[data-k] { cursor: pointer; }
+#selCancel { background: transparent; color: var(--cream); font-weight: 400 !important; padding: 0 8px !important; }
+#toast { position: fixed; left: 50%; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 8px); z-index: 9; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: var(--ink); color: var(--cream); font-size: .92rem; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#selbar[hidden], #toast[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
@@ -292,10 +326,13 @@ legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
 <div class="tabbar"><nav aria-label="主選單">
   <button class="tab" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>首頁</button>
   <button class="tab" data-tab="quiz"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>測驗</button>
+  <button class="tab" data-tab="notes"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>筆記冊</button>
   <button class="tab" data-tab="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>搜尋</button>
   <button class="tab" data-tab="wrong"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 10l6 6M15 10l-6 6"/></svg>錯題本</button>
   <button class="tab" data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>設定</button>
 </nav></div>
+<div id="selbar" hidden><div class="sel-in"><span class="sel-text"></span><button type="button" id="selAdd">劃重點</button><button type="button" id="selCancel" aria-label="取消">取消</button></div></div>
+<div id="toast" role="status" hidden></div>
 <script src="data.js"></script>
 <script src="app.js"></script>
 <script>
